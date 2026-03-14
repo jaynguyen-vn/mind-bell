@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		6946F81B2D12BD7A00CA093C /* MindBell.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MindBell.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		6946F81B2D12BD7A00CA093C /* MindBell.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MindBell.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6946F8362D12D5BF00CA093C /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		697517C32D16EB1C00D759CF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -22,7 +22,7 @@
 			platformFiltersByRelativePath = {
 				Focus_BellApp.swift = (macos, );
 			};
-			target = 6946F81A2D12BD7A00CA093C /* Focus Bell */;
+			target = 6946F81A2D12BD7A00CA093C /* MindBell */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -78,7 +78,7 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6946F81A2D12BD7A00CA093C /* Focus Bell */ = {
+		6946F81A2D12BD7A00CA093C /* MindBell */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6946F82A2D12BD7B00CA093C /* Build configuration list for PBXNativeTarget "MindBell" */;
 			buildPhases = (
@@ -129,7 +129,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				6946F81A2D12BD7A00CA093C /* Focus Bell */,
+				6946F81A2D12BD7A00CA093C /* MindBell */,
 			);
 		};
 /* End PBXProject section */
@@ -278,9 +278,9 @@
 				CODE_SIGN_ENTITLEMENTS = "Focus Bell/Focus_Bell.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "\"Focus Bell/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7Q463GFSX8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=*]" = Info.plist;
@@ -303,7 +303,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Jay8448.Mind-Bell";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -325,9 +325,9 @@
 				CODE_SIGN_ENTITLEMENTS = "Focus Bell/Focus_Bell.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_ASSET_PATHS = "\"Focus Bell/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 7Q463GFSX8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=*]" = Info.plist;
@@ -350,7 +350,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "Jay8448.Mind-Bell";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
