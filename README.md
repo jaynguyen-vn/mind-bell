@@ -45,13 +45,18 @@ open "build/Release/Focus Bell.app"
 ## Project Structure
 
 ```
-Focus Bell/
-├── Focus_BellApp.swift          # Main app entry point, views, and core logic
-├── Focus_BellApp_Mobile.swift   # iOS version (commented out, not compiled)
-├── Focus_Bell.entitlements      # Sandbox and file access permissions
-├── Assets.xcassets/             # App icons and image assets
-├── Preview Content/             # SwiftUI preview data
-└── [9 sound files]              # Preset alert sounds (WAV format)
+MindBell/
+├── MindBell.xcodeproj/              # Xcode project file
+├── Info.plist                       # App configuration and metadata
+├── LICENSE                          # MIT License
+├── README.md
+└── Focus Bell/                      # Source code
+    ├── Focus_BellApp.swift          # Main app entry point, views, and core logic
+    ├── Focus_BellApp_Mobile.swift   # iOS version (commented out, not compiled)
+    ├── Focus_Bell.entitlements      # Sandbox and file access permissions
+    ├── Assets.xcassets/             # App icons and image assets
+    ├── Preview Content/             # SwiftUI preview data
+    └── [9 sound files]              # Preset alert sounds (WAV format)
 ```
 
 ## Architecture Overview
@@ -60,7 +65,8 @@ Focus Bell/
 
 - **TimerViewModel**: Manages timer logic, sound loading/playback, and UserDefaults persistence
 - **AppDelegate**: Manages the menu bar status item, main popover UI, and alert notifications
-- **Views**: `ContentView` (router), `TimerSetupView` (configuration), `TimerRunningView` (countdown display), `SoundSelectionView` (sound picker)
+- **Views**: `ContentView` (router), `TimerSetupView` (configuration), `TimerRunningView` (countdown display), `SoundSelectionView` (sound picker), `SoundGridItem` (individual sound cell)
+- **App Entry**: `TimerApp` (`@main` struct)
 - **Enums**: `TimerMode`, `SoundSource`, `AlertSound`
 - **Protocol**: `TimerUpdateDelegate` bridges ViewModel to AppDelegate for UI updates
 
