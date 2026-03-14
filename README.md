@@ -20,8 +20,8 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 ### Download (Recommended)
 
 1. Go to the [Releases](https://github.com/jaynguyen-vn/mind-bell/releases/latest) page
-2. Download **MindBell.zip**
-3. Unzip and drag **MindBell.app** to your **Applications** folder
+2. Download **MindBell.dmg** (or MindBell.zip)
+3. Open the `.dmg` and drag **MindBell.app** to your **Applications** folder
 4. On first launch, right-click the app and select **Open** (macOS Gatekeeper prompt for unsigned apps)
 5. MindBell appears as a bell icon in your menu bar — no dock icon
 
