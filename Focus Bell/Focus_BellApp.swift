@@ -519,11 +519,34 @@ struct ContentView: View {
 
             Spacer().frame(height: 12)
 
-            // Quit link at bottom
-            Text("Quit")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .onTapGesture { quitAction() }
+            // Footer: credit + quit
+            VStack(spacing: 6) {
+                HStack(spacing: 0) {
+                    Text("MindBell by ")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Jay")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                        .onTapGesture {
+                            if let url = URL(string: "https://www.facebook.com/iductruong") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .onHover { hovering in
+                            if hovering {
+                                NSCursor.pointingHand.push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
+                }
+
+                Text("Quit")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .onTapGesture { quitAction() }
+            }
         }
         .padding(20)
         .frame(width: 280)
