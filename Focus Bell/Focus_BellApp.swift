@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 import Cocoa
 import UniformTypeIdentifiers
+import ServiceManagement
 
 enum TimerMode {
     case once
@@ -83,6 +84,8 @@ class TimerViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(customSoundName, forKey: "customSoundName") }
     }
 
+    @Published var launchAtLogin: Bool = false
+
     weak var delegate: TimerUpdateDelegate?
     private var timer: Timer?
     private var audioPlayer: AVAudioPlayer?
@@ -96,6 +99,24 @@ class TimerViewModel: ObservableObject {
     init() {
         restoreSavedSettings()
         loadCurrentSound()
+        if #available(macOS 13.0, *) {
+            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        }
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            do {
+                if enabled {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                print("Failed to update login item: \(error)")
+            }
+            launchAtLogin = (SMAppService.mainApp.status == .enabled)
+        }
     }
 
     private func restoreSavedSettings() {
@@ -519,8 +540,34 @@ struct ContentView: View {
 
             Spacer().frame(height: 12)
 
-            // Footer: credit + quit
+            // Footer: settings + credit
             VStack(spacing: 6) {
+                HStack {
+                    if #available(macOS 13.0, *) {
+                        Toggle("Launch at Login", isOn: Binding(
+                            get: { viewModel.launchAtLogin },
+                            set: { viewModel.setLaunchAtLogin($0) }
+                        ))
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Text("Quit")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .onTapGesture { quitAction() }
+                        .onHover { hovering in
+                            if hovering {
+                                NSCursor.pointingHand.push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
+                }
+
                 HStack(spacing: 0) {
                     Text("MindBell by ")
                         .font(.caption)
@@ -541,11 +588,6 @@ struct ContentView: View {
                             }
                         }
                 }
-
-                Text("Quit")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .onTapGesture { quitAction() }
             }
         }
         .padding(20)
