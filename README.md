@@ -15,21 +15,28 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 - **Persistent settings**: Remembers your last duration, sound, and custom files
 - **Keyboard shortcuts**: Enter to start/stop, Cmd+Q to quit
 
-## Requirements
+## Installation
 
-- macOS 11.5 or later
-- Swift 5
-- Xcode 16.2 (for building)
+### Download (Recommended)
 
-## Building & Running
+1. Go to the [Releases](https://github.com/jaynguyen-vn/mind-bell/releases/latest) page
+2. Download **MindBell.zip**
+3. Unzip and drag **MindBell.app** to your **Applications** folder
+4. On first launch, right-click the app and select **Open** (macOS Gatekeeper prompt for unsigned apps)
+5. MindBell appears as a bell icon in your menu bar — no dock icon
 
-### From Xcode
-1. Open `MindBell.xcodeproj` in Xcode 16.2
+> **Note:** MindBell is not notarized by Apple. On first run macOS may block it. Go to **System Settings > Privacy & Security** and click **Open Anyway**, or right-click → Open.
+
+### Build from Source
+
+**Requirements:** macOS 11.5+, Xcode 16.2, Swift 5
+
+#### From Xcode
+1. Open `MindBell.xcodeproj` in Xcode
 2. Select the "Focus Bell" target
-3. Choose **Product > Build** (Cmd+B) to compile
-4. Choose **Product > Run** (Cmd+R) to launch the app
+3. **Product > Build** (Cmd+B), then **Product > Run** (Cmd+R)
 
-### From Command Line
+#### From Command Line
 ```bash
 xcodebuild -project "MindBell.xcodeproj" -scheme "Focus Bell" -configuration Release build
 open "build/Release/Focus Bell.app"
