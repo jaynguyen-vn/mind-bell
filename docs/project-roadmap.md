@@ -5,7 +5,7 @@
 **Version:** 1.1.0
 **Build:** 8
 **Release Date:** 2026-03-14
-**Platform:** macOS 11.5+ (menu bar app)
+**Platform:** macOS 12.0+ (menu bar app)
 **Language:** Swift 5, SwiftUI
 **Status:** Feature-complete (MVP + preset sounds)
 

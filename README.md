@@ -29,17 +29,17 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 
 ### Build from Source
 
-**Requirements:** macOS 11.5+, Xcode 16.2, Swift 5
+**Requirements:** macOS 12.0+, Xcode 16.2 or later, Swift 5
 
 #### From Xcode
 1. Open `MindBell.xcodeproj` in Xcode
-2. Select the "Focus Bell" target
+2. Select the "MindBell" scheme
 3. **Product > Build** (Cmd+B), then **Product > Run** (Cmd+R)
 
 #### From Command Line
 ```bash
-xcodebuild -project "MindBell.xcodeproj" -scheme "Focus Bell" -configuration Release build
-open "build/Release/Focus Bell.app"
+xcodebuild -project "MindBell.xcodeproj" -scheme "MindBell" -configuration Release -derivedDataPath build build
+open "build/Build/Products/Release/MindBell.app"
 ```
 
 ## Project Structure

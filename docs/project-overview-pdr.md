@@ -81,7 +81,7 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 ## Technical Requirements
 
 ### Non-Functional Requirements
-- **Platform**: macOS 11.5 or later (Monterey+)
+- **Platform**: macOS 12.0 or later (Monterey+)
 - **Language**: Swift 5 with SwiftUI
 - **Build System**: Xcode 16.2
 - **Frameworks**: SwiftUI, AVFoundation, Cocoa, UniformTypeIdentifiers

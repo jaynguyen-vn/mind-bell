@@ -281,7 +281,7 @@ User Selects Sound
 ## Build Configuration
 
 - **Language**: Swift 5
-- **Target OS**: macOS 11.5+
+- **Target OS**: macOS 12.0+
 - **Build System**: Xcode 16.2
 - **Signing**: Automatic, Team ID `YOUR_TEAM_ID`
 - **Code Signing Identity**: Apple Development
