@@ -88,6 +88,8 @@ class TimerViewModel: ObservableObject {
 
     weak var delegate: TimerUpdateDelegate?
     private var timer: Timer?
+    private var endDate: Date?
+    private var activity: NSObjectProtocol?
     private var audioPlayer: AVAudioPlayer?
 
     var progress: Double {
@@ -217,9 +219,16 @@ class TimerViewModel: ObservableObject {
     }
 
     func startTimer() {
+        // A second start (e.g. Enter pressed twice) would orphan the first timer, which Stop could no longer cancel
+        guard !isRunning else { return }
         isRunning = true
-        timeLeft = initialTime * 60
-        updateMenuBarTitle()
+        startCycle()
+
+        // Keep App Nap from throttling the ticks while a session runs; the Mac may still sleep
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Focus timer running"
+        )
 
         loadCurrentSound()
         playSound()
@@ -229,26 +238,39 @@ class TimerViewModel: ObservableObject {
         }
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
+            self?.tick()
+        }
+    }
 
-            if self.timeLeft > 0 {
-                self.timeLeft -= 1
-                self.updateMenuBarTitle()
-            } else {
-                self.loadCurrentSound()
-                self.playSound()
+    private func startCycle() {
+        timeLeft = initialTime * 60
+        endDate = Date().addingTimeInterval(TimeInterval(timeLeft))
+        updateMenuBarTitle()
+    }
 
-                if !self.taskName.isEmpty {
-                    self.delegate?.showAlert(self.taskName)
-                }
+    private func tick() {
+        guard let endDate = endDate else { return }
 
-                if self.mode == .repeat {
-                    self.timeLeft = self.initialTime * 60
-                    self.updateMenuBarTitle()
-                } else {
-                    self.stopTimer()
-                }
-            }
+        // Read the remaining time off the clock so sleep or late ticks can't push the bell back
+        let remaining = Int(endDate.timeIntervalSinceNow.rounded())
+        if remaining > 0 {
+            timeLeft = remaining
+            updateMenuBarTitle()
+            return
+        }
+
+        loadCurrentSound()
+        playSound()
+
+        if !taskName.isEmpty {
+            delegate?.showAlert(taskName)
+        }
+
+        if mode == .repeat {
+            startCycle()
+        } else {
+            // Let the final bell ring out; only a manual stop cuts the sound
+            stopTimer(stopSound: false)
         }
     }
 
@@ -257,11 +279,18 @@ class TimerViewModel: ObservableObject {
         audioPlayer?.play()
     }
 
-    func stopTimer() {
+    func stopTimer(stopSound: Bool = true) {
         isRunning = false
         timer?.invalidate()
         timer = nil
-        audioPlayer?.stop()
+        endDate = nil
+        if let activity = activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
+        if stopSound {
+            audioPlayer?.stop()
+        }
         updateMenuBarTitle()
     }
 
@@ -454,6 +483,10 @@ struct TimerSetupView: View {
     @ObservedObject var viewModel: TimerViewModel
     let onStart: () -> Void
 
+    // Text-backed so each keystroke updates the duration; a formatter-backed field only
+    // commits on Return or blur, so clicking Start right after typing used the old value
+    @State private var minutesText = ""
+
     private var isStartDisabled: Bool {
         viewModel.initialTime <= 0
     }
@@ -475,9 +508,13 @@ struct TimerSetupView: View {
                     Text("Minutes")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    TextField("", value: $viewModel.initialTime, formatter: NumberFormatter())
+                    TextField("", text: $minutesText)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 60)
+                        .onAppear { minutesText = String(viewModel.initialTime) }
+                        .onChange(of: minutesText) { text in
+                            viewModel.initialTime = Int(text.trimmingCharacters(in: .whitespaces)) ?? 0
+                        }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -515,6 +552,33 @@ struct TimerSetupView: View {
             .keyboardShortcut(.return, modifiers: [])
             .disabled(isStartDisabled)
         }
+    }
+}
+
+// MARK: - Pointing Hand Cursor
+
+/// Shows the pointing-hand cursor on hover. Tracks its own push so the cursor stack stays
+/// balanced when the view goes away mid-hover (e.g. the popover closes after opening a link).
+struct PointingHandCursor: ViewModifier {
+    @State private var isPushed = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { hovering in
+                if hovering && !isPushed {
+                    NSCursor.pointingHand.push()
+                    isPushed = true
+                } else if !hovering && isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
+            }
+            .onDisappear {
+                if isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
+            }
     }
 }
 
@@ -559,13 +623,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .onTapGesture { quitAction() }
-                        .onHover { hovering in
-                            if hovering {
-                                NSCursor.pointingHand.push()
-                            } else {
-                                NSCursor.pop()
-                            }
-                        }
+                        .modifier(PointingHandCursor())
                 }
 
                 HStack(spacing: 0) {
@@ -580,13 +638,7 @@ struct ContentView: View {
                                 NSWorkspace.shared.open(url)
                             }
                         }
-                        .onHover { hovering in
-                            if hovering {
-                                NSCursor.pointingHand.push()
-                            } else {
-                                NSCursor.pop()
-                            }
-                        }
+                        .modifier(PointingHandCursor())
                 }
             }
         }

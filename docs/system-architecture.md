@@ -316,16 +316,20 @@ App Reopens
 ```
 startTimer() called
     │
+    ├→ ignored if already running (no orphaned second timer)
     ├→ isRunning = true (triggers UI render)
-    ├→ timeLeft = initialTime * 60
+    ├→ startCycle(): timeLeft = initialTime * 60, endDate = now + timeLeft
+    ├→ beginActivity(.userInitiatedAllowingIdleSystemSleep) → no App Nap throttling
     ├→ playSound()
     ├→ showAlert(taskName) if task name provided
     │
-    └→ Timer.scheduledTimer(withTimeInterval: 1, repeats: true)
+    └→ Timer.scheduledTimer(withTimeInterval: 1, repeats: true) → tick()
         │
         └→ Every 1 second:
-            ├→ if timeLeft > 0:
-            │   ├→ timeLeft -= 1
+            ├→ remaining = endDate - now (rounded to whole seconds)
+            │
+            ├→ if remaining > 0:
+            │   ├→ timeLeft = remaining
             │   ├→ updateMenuBarTitle() → AppDelegate updates menu bar
             │   └→ (SwiftUI detects @Published change, re-renders)
             │
@@ -334,12 +338,16 @@ startTimer() called
                 ├→ showAlert(taskName)
                 │
                 └→ if mode == .once:
-                    │   stopTimer()
+                    │   stopTimer(stopSound: false) → bell rings out
                     │
                     └→ else (mode == .repeat):
-                        └→ timeLeft = initialTime * 60
+                        └→ startCycle()
                             └→ Cycle repeats
 ```
+
+The countdown is read off the wall clock (`endDate`), not decremented per tick. If the Mac
+sleeps past the end, the bell rings on the first tick after wake instead of being pushed back
+by the sleep time. A manual Stop (`stopTimer()`) still cuts any sound that is playing.
 
 ### Keyboard Event Handling
 
@@ -381,8 +389,7 @@ panel.begin { [weak self] response in
 ```swift
 timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
     // Runs on main thread by default
-    self?.timeLeft -= 1
-    self?.updateMenuBarTitle()  // AppDelegate, main thread only
+    self?.tick()  // Updates timeLeft and the menu bar (AppDelegate, main thread only)
 }
 ```
 
@@ -412,10 +419,11 @@ weak var delegate: TimerUpdateDelegate?
 ### Resource Cleanup
 
 ```swift
-stopTimer() {
-    timer?.invalidate()  // Stop timer
-    timer = nil          // Release reference
-    audioPlayer?.stop()  // Stop audio
+stopTimer(stopSound: Bool = true) {
+    timer?.invalidate()                 // Stop timer
+    timer = nil                         // Release reference
+    endActivity(activity)               // Allow App Nap again
+    if stopSound { audioPlayer?.stop() } // Manual stop only; natural finish lets the bell ring out
     // Player remains in memory until next load (acceptable)
 }
 ```
