@@ -3,6 +3,7 @@ import AVFoundation
 import Cocoa
 import UniformTypeIdentifiers
 import ServiceManagement
+import UserNotifications
 
 enum TimerMode {
     case once
@@ -16,40 +17,49 @@ enum SoundSource {
 
 enum AlertSound: String, CaseIterable {
     case singingBowl = "singing-bowl"
-    case zenBell = "zen-bell"
-    case windChime = "wind-chime"
-    case chime = "chime"
-    case bikeBell = "bike-bell-ring"
-    case schoolBell = "school-bell"
-    case airportAnnouncementBell = "airport-announcement-ding"
     case templeBell = "temple-bell"
-    case xylophone = "xylophone"
+    case tingsha = "tingsha"
+    case windChime = "wind-chime"
+    case kalimba = "kalimba"
+    case marimba = "marimba"
+    case airport = "airport-announcement-ding"
+    case softDing = "soft-ding"
+
+    /// Resolves a saved raw value, mapping sounds removed from the preset set to their closest replacement
+    init?(savedValue: String) {
+        let replacements = [
+            "zen-bell": "temple-bell",
+            "chime": "soft-ding",
+            "xylophone": "marimba",
+            "school-bell": "airport-announcement-ding",
+            "bike-bell-ring": "soft-ding"
+        ]
+        self.init(rawValue: replacements[savedValue] ?? savedValue)
+    }
 
     var displayName: String {
         switch self {
         case .singingBowl: return "Singing Bowl"
-        case .zenBell: return "Zen Bell"
-        case .windChime: return "Wind Chime"
-        case .chime: return "Chime"
-        case .bikeBell: return "Bike Bell"
-        case .schoolBell: return "School Bell"
-        case .airportAnnouncementBell: return "Airport"
         case .templeBell: return "Temple Bell"
-        case .xylophone: return "Xylophone"
+        case .tingsha: return "Tingsha"
+        case .windChime: return "Wind Chime"
+        case .kalimba: return "Kalimba"
+        case .marimba: return "Marimba"
+        case .airport: return "Airport"
+        case .softDing: return "Soft Ding"
         }
     }
 
     var icon: String {
         switch self {
-        case .singingBowl: return "circle.circle"
-        case .zenBell: return "bell"
+        case .singingBowl: return "circle.bottomhalf.filled"
+        case .templeBell: return "bell"
+        case .tingsha: return "sparkles"
         case .windChime: return "wind"
-        case .chime: return "bell.fill"
-        case .bikeBell: return "bicycle"
-        case .schoolBell: return "bell.badge"
-        case .airportAnnouncementBell: return "airplane"
-        case .templeBell: return "building.columns"
-        case .xylophone: return "pianokeys"
+        case .kalimba: return "music.note"
+        case .marimba: return "music.quarternote.3"
+        case .airport: return "airplane"
+        case .softDing: return "tuningfork"
         }
     }
 }
@@ -60,6 +70,8 @@ class TimerViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(initialTime, forKey: "initialTime") }
     }
     @Published var isRunning = false
+    @Published var isPaused = false
+    @Published private(set) var endDate: Date?
     @Published var mode: TimerMode = .once
     @Published var taskName: String = ""
     @Published var selectedSound: AlertSound = .singingBowl {
@@ -83,12 +95,21 @@ class TimerViewModel: ObservableObject {
     @Published var customSoundName: String = "" {
         didSet { UserDefaults.standard.set(customSoundName, forKey: "customSoundName") }
     }
+    @Published var volume: Double = 1.0 {
+        didSet {
+            UserDefaults.standard.set(volume, forKey: "volume")
+            audioPlayer?.volume = Float(volume)
+        }
+    }
 
     @Published var launchAtLogin: Bool = false
 
+    /// Upper bound for a session; also keeps `minutes * 60` far from integer overflow
+    static let maxMinutes = 999
+
     weak var delegate: TimerUpdateDelegate?
     private var timer: Timer?
-    private var endDate: Date?
+    private var pausedRemaining: TimeInterval = 0
     private var activity: NSObjectProtocol?
     private var audioPlayer: AVAudioPlayer?
 
@@ -124,35 +145,40 @@ class TimerViewModel: ObservableObject {
     private func restoreSavedSettings() {
         // Restore duration (default 8 if never saved)
         let savedTime = UserDefaults.standard.integer(forKey: "initialTime")
-        if savedTime > 0 { initialTime = savedTime }
+        if savedTime > 0 { initialTime = min(savedTime, TimerViewModel.maxMinutes) }
+
+        // Restore volume (default full volume, like before the slider existed)
+        if UserDefaults.standard.object(forKey: "volume") != nil {
+            volume = UserDefaults.standard.double(forKey: "volume")
+        }
 
         // Restore preset sound
         if let savedSound = UserDefaults.standard.string(forKey: "selectedSound"),
-           let sound = AlertSound(rawValue: savedSound) {
+           let sound = AlertSound(savedValue: savedSound) {
             selectedSound = sound
         }
 
-        // Restore custom sound
+        // Restore custom sound; keep the file even while a preset is selected so the Custom tile can switch back to it
         let isCustom = UserDefaults.standard.bool(forKey: "isCustomSound")
         customSoundName = UserDefaults.standard.string(forKey: "customSoundName") ?? ""
 
-        if isCustom, let bookmarkData = UserDefaults.standard.data(forKey: "customSoundBookmark") {
+        if let bookmarkData = UserDefaults.standard.data(forKey: "customSoundBookmark") {
             var isStale = false
             if let url = try? URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale),
                url.startAccessingSecurityScopedResource(),
                FileManager.default.fileExists(atPath: url.path) {
+                // Assigning re-saves the bookmark, which also refreshes a stale one
                 customSoundURL = url
-                soundSource = .custom
-                if isStale {
-                    // Re-save bookmark if stale
-                    self.customSoundURL = url
-                }
-            } else {
+                if isCustom { soundSource = .custom }
+            } else if isCustom {
                 // File deleted or inaccessible — fallback to preset
                 soundSource = .preset
                 customSoundName = ""
                 UserDefaults.standard.removeObject(forKey: "customSoundBookmark")
             }
+            // With a preset selected, keep the bookmark: the file may just be on a drive that isn't mounted yet
+        } else if isCustom {
+            soundSource = .preset
         }
     }
 
@@ -162,7 +188,7 @@ class TimerViewModel: ObservableObject {
             loadPresetSound(selectedSound)
         case .custom:
             if let url = customSoundURL, FileManager.default.fileExists(atPath: url.path) {
-                loadCustomSound(from: url)
+                loadSound(from: url)
             } else {
                 // File gone — fallback to preset
                 soundSource = .preset
@@ -174,13 +200,17 @@ class TimerViewModel: ObservableObject {
     }
 
     private func loadPresetSound(_ sound: AlertSound) {
-        guard let soundURL = Bundle.main.url(forResource: sound.rawValue, withExtension: "wav") else { return }
-        loadCustomSound(from: soundURL)
+        guard let soundURL = Bundle.main.url(forResource: sound.rawValue, withExtension: "m4a") else {
+            assertionFailure("Missing bundled sound \(sound.rawValue).m4a")
+            return
+        }
+        loadSound(from: soundURL)
     }
 
-    private func loadCustomSound(from url: URL) {
+    private func loadSound(from url: URL) {
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.volume = Float(volume)
             audioPlayer?.prepareToPlay()
         } catch {
             print("Error loading sound file: \(error)")
@@ -201,9 +231,21 @@ class TimerViewModel: ObservableObject {
                     self.customSoundURL = url
                     self.customSoundName = url.lastPathComponent
                     self.soundSource = .custom
-                    self.loadCustomSound(from: url)
+                    self.loadSound(from: url)
                 }
             }
+        }
+    }
+
+    /// Custom tile: switch back to the saved file, or pick one when there is none, it went missing,
+    /// or Custom is already selected
+    func selectCustomTile() {
+        let savedFileExists = customSoundURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+        if soundSource == .custom || !savedFileExists {
+            selectCustomSound()
+        } else {
+            soundSource = .custom
+            previewSound()
         }
     }
 
@@ -222,30 +264,66 @@ class TimerViewModel: ObservableObject {
         // A second start (e.g. Enter pressed twice) would orphan the first timer, which Stop could no longer cancel
         guard !isRunning else { return }
         isRunning = true
+        isPaused = false
         startCycle()
-
-        // Keep App Nap from throttling the ticks while a session runs; the Mac may still sleep
-        activity = ProcessInfo.processInfo.beginActivity(
-            options: .userInitiatedAllowingIdleSystemSleep,
-            reason: "Focus timer running"
-        )
+        startTicking()
 
         loadCurrentSound()
-        playSound()
+        playStartCue()
 
-        if !taskName.isEmpty {
-            delegate?.showAlert(taskName)
-        }
+        delegate?.sessionDidStart(taskName: taskName)
+    }
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.tick()
+    func togglePause() {
+        if isPaused {
+            resumeTimer()
+        } else {
+            pauseTimer()
         }
+    }
+
+    func pauseTimer() {
+        guard isRunning, !isPaused, let endDate = endDate else { return }
+        pausedRemaining = endDate.timeIntervalSinceNow
+        timeLeft = max(0, Int(pausedRemaining.rounded()))
+        self.endDate = nil
+        isPaused = true
+        stopTicking()
+        updateMenuBarTitle()
+    }
+
+    func resumeTimer() {
+        guard isRunning, isPaused else { return }
+        endDate = Date().addingTimeInterval(pausedRemaining)
+        isPaused = false
+        startTicking()
+        updateMenuBarTitle()
     }
 
     private func startCycle() {
         timeLeft = initialTime * 60
         endDate = Date().addingTimeInterval(TimeInterval(timeLeft))
         updateMenuBarTitle()
+    }
+
+    private func startTicking() {
+        // Keep App Nap from throttling the ticks while a session runs; the Mac may still sleep
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Focus timer running"
+        )
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+    }
+
+    private func stopTicking() {
+        timer?.invalidate()
+        timer = nil
+        if let activity = activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
     }
 
     private func tick() {
@@ -262,9 +340,7 @@ class TimerViewModel: ObservableObject {
         loadCurrentSound()
         playSound()
 
-        if !taskName.isEmpty {
-            delegate?.showAlert(taskName)
-        }
+        delegate?.sessionDidFinish(taskName: taskName, nextBellMinutes: mode == .repeat ? initialTime : nil)
 
         if mode == .repeat {
             startCycle()
@@ -274,20 +350,31 @@ class TimerViewModel: ObservableObject {
         }
     }
 
-    private func playSound() {
+    private func playSound(volumeScale: Float = 1) {
+        audioPlayer?.volume = Float(volume) * volumeScale
         audioPlayer?.currentTime = 0
         audioPlayer?.play()
     }
 
+    /// A softer, shortened strike at the start so it can't be mistaken for the full end-of-session bell
+    private func playStartCue() {
+        playSound(volumeScale: 0.5)
+        guard let player = audioPlayer else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            guard player.isPlaying else { return }
+            player.setVolume(0, fadeDuration: 0.8)
+            // Stop once silent: a muted player still holds the audio device and keeps the Mac from idle sleep
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                if player.isPlaying && player.volume == 0 { player.stop() }
+            }
+        }
+    }
+
     func stopTimer(stopSound: Bool = true) {
         isRunning = false
-        timer?.invalidate()
-        timer = nil
+        isPaused = false
+        stopTicking()
         endDate = nil
-        if let activity = activity {
-            ProcessInfo.processInfo.endActivity(activity)
-            self.activity = nil
-        }
         if stopSound {
             audioPlayer?.stop()
         }
@@ -306,18 +393,15 @@ class TimerViewModel: ObservableObject {
     }
 
     private func updateMenuBarTitle() {
-        if isRunning {
-            delegate?.updateMenuBarTitle(formatTime())
-        } else {
-            delegate?.updateMenuBarTitle("")
-        }
+        delegate?.updateMenuBarTitle(isRunning ? formatTime() : "", isPaused: isPaused)
     }
 }
 
 // MARK: - Sound Grid Item
 
 struct SoundGridItem: View {
-    let sound: AlertSound
+    let icon: String
+    let title: String
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -325,20 +409,20 @@ struct SoundGridItem: View {
         Button(action: onSelect) {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: sound.icon)
+                    Image(systemName: icon)
                         .font(.system(size: 16))
                         .frame(width: 36, height: 28)
 
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 9))
+                            .font(.system(size: 11))
                             .foregroundColor(.accentColor)
-                            .offset(x: 4, y: -2)
+                            .offset(x: 6, y: -3)
                     }
                 }
 
-                Text(sound.displayName)
-                    .font(.system(size: 9))
+                Text(title)
+                    .font(.system(size: 11))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -355,6 +439,9 @@ struct SoundGridItem: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -366,54 +453,56 @@ struct SoundSelectionView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Preset sound grid
-            if viewModel.soundSource == .preset {
-                LazyVGrid(columns: columns, spacing: 6) {
-                    ForEach(AlertSound.allCases, id: \.self) { sound in
-                        SoundGridItem(
-                            sound: sound,
-                            isSelected: viewModel.selectedSound == sound,
-                            onSelect: {
-                                viewModel.updateSelectedSound(sound)
-                                viewModel.previewSound()
-                            }
-                        )
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: columns, spacing: 6) {
+                ForEach(AlertSound.allCases, id: \.self) { sound in
+                    SoundGridItem(
+                        icon: sound.icon,
+                        title: sound.displayName,
+                        isSelected: viewModel.soundSource == .preset && viewModel.selectedSound == sound,
+                        onSelect: {
+                            viewModel.updateSelectedSound(sound)
+                            viewModel.previewSound()
+                        }
+                    )
                 }
-            } else {
-                // Custom sound file picker
-                HStack(spacing: 8) {
-                    Button {
-                        viewModel.selectCustomSound()
-                    } label: {
-                        Label("Choose File", systemImage: "folder")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
 
-                    if !viewModel.customSoundName.isEmpty {
-                        Text(viewModel.customSoundName)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-            }
-
-            // Source toggle
-            Button {
-                viewModel.soundSource = viewModel.soundSource == .preset ? .custom : .preset
-            } label: {
-                Label(
-                    viewModel.soundSource == .preset ? "Use Custom" : "Use Presets",
-                    systemImage: viewModel.soundSource == .preset ? "folder" : "music.note.list"
+                SoundGridItem(
+                    icon: "folder.badge.plus",
+                    title: "Custom",
+                    isSelected: viewModel.soundSource == .custom,
+                    onSelect: { viewModel.selectCustomTile() }
                 )
-                .font(.caption)
             }
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+
+            if viewModel.soundSource == .custom && !viewModel.customSoundName.isEmpty {
+                HStack(spacing: 6) {
+                    Text(viewModel.customSoundName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer()
+                    Button("Change…") { viewModel.selectCustomSound() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                }
+            }
+
+            // Volume; releasing the slider plays the sound at the new level
+            HStack(spacing: 6) {
+                Image(systemName: "speaker.fill")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Slider(value: $viewModel.volume, in: 0...1, onEditingChanged: { isEditing in
+                    if !isEditing { viewModel.previewSound() }
+                })
+                .controlSize(.small)
+                .accessibilityLabel("Volume")
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 }
@@ -423,6 +512,12 @@ struct SoundSelectionView: View {
 struct TimerRunningView: View {
     @ObservedObject var viewModel: TimerViewModel
     let onStop: () -> Void
+
+    private var statusLabel: (text: String, icon: String) {
+        if viewModel.isPaused { return ("Paused", "pause.fill") }
+        let time = viewModel.endDate?.formatted(date: .omitted, time: .shortened) ?? ""
+        return viewModel.mode == .repeat ? ("Next bell \(time)", "repeat") : ("Ends at \(time)", "clock")
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -450,29 +545,38 @@ struct TimerRunningView: View {
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(.linear(duration: 1), value: viewModel.progress)
+                    .opacity(viewModel.isPaused ? 0.4 : 1)
 
                 // Time text
-                VStack(spacing: 2) {
+                VStack(spacing: 4) {
                     Text(viewModel.formatTime())
-                        .font(.system(size: 36, weight: .light, design: .monospaced))
+                        .font(.system(size: 36, weight: .light, design: .rounded).monospacedDigit())
 
-                    if viewModel.mode == .repeat {
-                        Label("Repeating", systemImage: "repeat")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
+                    Label(statusLabel.text, systemImage: statusLabel.icon)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                 }
             }
             .frame(width: 160, height: 160)
             .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
 
-            // Stop button
-            Button(action: onStop) {
-                Text("Stop")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                Button(action: viewModel.togglePause) {
+                    Text(viewModel.isPaused ? "Resume" : "Pause")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.return, modifiers: [])
+
+                // No keyboard shortcut: Stop ends the session, so it should never fire by accident
+                Button(action: onStop) {
+                    Text("Stop")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
             }
-            .controlSize(.large)
-            .keyboardShortcut(.return, modifiers: [])
         }
     }
 }
@@ -487,12 +591,14 @@ struct TimerSetupView: View {
     // commits on Return or blur, so clicking Start right after typing used the old value
     @State private var minutesText = ""
 
+    private let minutePresets = [5, 15, 25, 50]
+
     private var isStartDisabled: Bool {
         viewModel.initialTime <= 0
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             // Task name
             VStack(alignment: .leading, spacing: 4) {
                 Text("Task")
@@ -502,37 +608,51 @@ struct TimerSetupView: View {
                     .textFieldStyle(.roundedBorder)
             }
 
-            // Duration + Mode row
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Minutes")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            // Duration: free entry plus quick presets
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Minutes")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack(spacing: 6) {
                     TextField("", text: $minutesText)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 60)
+                        .frame(width: 48)
+                        .accessibilityLabel("Minutes")
                         .onAppear { minutesText = String(viewModel.initialTime) }
                         .onChange(of: minutesText) { text in
-                            viewModel.initialTime = Int(text.trimmingCharacters(in: .whitespaces)) ?? 0
+                            let minutes = Int(text.trimmingCharacters(in: .whitespaces)) ?? 0
+                            if minutes > TimerViewModel.maxMinutes {
+                                minutesText = String(TimerViewModel.maxMinutes)
+                                return
+                            }
+                            viewModel.initialTime = minutes
                         }
+
+                    ForEach(minutePresets, id: \.self) { minutes in
+                        MinutePresetChip(minutes: minutes, isSelected: viewModel.initialTime == minutes) {
+                            minutesText = String(minutes)
+                        }
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Mode")
+                if viewModel.initialTime <= 0 {
+                    Text("Enter at least 1 minute")
+                        .foregroundColor(.red)
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                    Picker("", selection: $viewModel.mode) {
-                        Label("Once", systemImage: "1.circle").tag(TimerMode.once)
-                        Label("Repeat", systemImage: "repeat").tag(TimerMode.repeat)
-                    }
-                    .pickerStyle(.segmented)
                 }
             }
 
-            if viewModel.initialTime <= 0 {
-                Text("Duration must be greater than 0")
-                    .foregroundColor(.red)
+            // Mode
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Mode")
                     .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("", selection: $viewModel.mode) {
+                    Label("Once", systemImage: "1.circle").tag(TimerMode.once)
+                    Label("Repeat", systemImage: "repeat").tag(TimerMode.repeat)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
 
             // Sound selection
@@ -548,10 +668,40 @@ struct TimerSetupView: View {
                 Text("Start Focus")
                     .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.return, modifiers: [])
             .disabled(isStartDisabled)
         }
+    }
+}
+
+// MARK: - Minute Preset Chip
+
+struct MinutePresetChip: View {
+    let minutes: Int
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            Text("\(minutes)")
+                .font(.system(size: 12))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.gray.opacity(0.12))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(minutes) minutes")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -619,10 +769,10 @@ struct ContentView: View {
 
                     Spacer()
 
-                    Text("Quit")
+                    Button("Quit", action: quitAction)
+                        .buttonStyle(.plain)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .onTapGesture { quitAction() }
                         .modifier(PointingHandCursor())
                 }
 
@@ -630,14 +780,8 @@ struct ContentView: View {
                     Text("MindBell by ")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("Jay")
+                    Link("Jay", destination: URL(string: "https://www.facebook.com/iductruong")!)
                         .font(.caption)
-                        .foregroundColor(.accentColor)
-                        .onTapGesture {
-                            if let url = URL(string: "https://www.facebook.com/iductruong") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
                         .modifier(PointingHandCursor())
                 }
             }
@@ -650,20 +794,26 @@ struct ContentView: View {
 // MARK: - App Delegate
 
 protocol TimerUpdateDelegate: AnyObject {
-    func updateMenuBarTitle(_ title: String)
-    func showAlert(_ message: String)
+    func updateMenuBarTitle(_ title: String, isPaused: Bool)
+    func sessionDidStart(taskName: String)
+    /// `nextBellMinutes` is set in repeat mode, nil when the session is over
+    func sessionDidFinish(taskName: String, nextBellMinutes: Int?)
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, TimerUpdateDelegate, UNUserNotificationCenterDelegate {
     var statusItem: NSStatusItem!
     var popover: NSPopover!
     var timerViewModel: TimerViewModel!
     var alertPopover: NSPopover?
 
+    private let bellImage = NSImage(systemSymbolName: "bell", accessibilityDescription: "MindBell")
+    private let pausedImage = NSImage(systemSymbolName: "pause.circle", accessibilityDescription: "MindBell, paused")
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         setupTimerViewModel()
         setupPopover()
         setupStatusItem()
+        UNUserNotificationCenter.current().delegate = self
 
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
@@ -672,9 +822,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
             return event
         }
 
-        // Show greeting so user knows the app is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.showAlert("MindBell is ready")
+        // Greet only on first launch; with Launch at Login a toast on every login gets noisy
+        if !UserDefaults.standard.bool(forKey: "hasShownReadyToast") {
+            UserDefaults.standard.set(true, forKey: "hasShownReadyToast")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.showAlert("MindBell is ready")
+            }
         }
     }
 
@@ -685,13 +838,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
 
     private func setupPopover() {
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 280, height: 480)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+        popover.delegate = self
+        let controller = NSHostingController(
             rootView: ContentView(viewModel: timerViewModel) {
                 NSApplication.shared.terminate(nil)
             }
         )
+        if #available(macOS 13.0, *) {
+            // Let the popover follow the content height as it switches between setup and running
+            controller.sizingOptions = .preferredContentSize
+        } else {
+            popover.contentSize = controller.view.fittingSize
+        }
+        popover.contentViewController = controller
         self.popover = popover
     }
 
@@ -699,7 +859,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "infinity", accessibilityDescription: "Infinity")
+            button.image = bellImage
             button.action = #selector(togglePopover(_:))
             button.target = self
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -746,10 +906,65 @@ class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
         self.alertPopover = alertPopover
     }
 
-    func updateMenuBarTitle(_ title: String) {
-        if let button = statusItem.button {
-            button.title = title.isEmpty ? "" : " " + title
+    func sessionDidStart(taskName: String) {
+        // Ask when a session starts rather than at launch, when the reason is clear; the system prompts only once
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, error in
+            if let error = error {
+                print("Notification authorization failed: \(error)")
+            } else if !granted {
+                print("Notifications not allowed; only the toast will show")
+            }
         }
+
+        if !taskName.isEmpty {
+            showAlert("Focus started · \(taskName)")
+        }
+    }
+
+    func sessionDidFinish(taskName: String, nextBellMinutes: Int?) {
+        showAlert(taskName.isEmpty ? "Time's up" : "Time's up · \(taskName)")
+
+        let content = UNMutableNotificationContent()
+        content.title = "Time's up"
+        if !taskName.isEmpty {
+            content.body = taskName
+        } else if let minutes = nextBellMinutes {
+            content.body = "Next bell in \(minutes) min"
+        } else {
+            content.body = "Focus session complete"
+        }
+        // The app plays its own bell, so the notification stays silent. A fixed identifier
+        // replaces the previous banner, so repeat mode doesn't pile up notifications.
+        let request = UNNotificationRequest(identifier: "mindbell.time-up", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Failed to post notification: \(error)")
+            }
+        }
+    }
+
+    func updateMenuBarTitle(_ title: String, isPaused: Bool) {
+        guard let button = statusItem.button else { return }
+        button.title = title.isEmpty ? "" : " " + title
+        let image = isPaused ? pausedImage : bellImage
+        if button.image !== image {
+            button.image = image
+        }
+    }
+
+    // Opening the popover activates MindBell; when it closes via Esc or the menu bar icon, hand keyboard
+    // focus back to the previous app. Skip it while one of our windows (e.g. the sound file picker) is key.
+    func popoverDidClose(_ notification: Notification) {
+        if NSApp.keyWindow == nil {
+            NSApp.deactivate()
+        }
+    }
+
+    // Show banners even while MindBell is the active app (e.g. the popover is open)
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list])
     }
 
     @objc func togglePopover(_ sender: AnyObject?) {
@@ -757,6 +972,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, TimerUpdateDelegate {
             if popover.isShown {
                 popover.performClose(sender)
             } else {
+                // Activate so Return works right away and the primary button draws in its active color
+                if #available(macOS 14.0, *) {
+                    NSApp.activate()
+                } else {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: NSRectEdge.minY)
             }
         }
