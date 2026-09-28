@@ -2,11 +2,11 @@
 
 ## Current Status
 
-**Version:** 1.2.1
+**Version:** 1.3.0
 **Build:** 10
 **Platform:** macOS 12.0+ (menu bar app)
 **Language:** Swift 5, SwiftUI
-**Status:** Feature-complete (MVP + preset sounds). After 1.2.1 the preset set was remade (8 sounds) and the UI gained pause/resume, volume control and notifications
+**Status:** Feature-complete. 1.3.0 remade the preset set (8 sounds) and added pause/resume, volume control and notifications
 
 ---
 

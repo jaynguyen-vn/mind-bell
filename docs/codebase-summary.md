@@ -310,7 +310,7 @@ User Selects Sound
 - **Signing**: Automatic, Team ID `YOUR_TEAM_ID`
 - **Code Signing Identity**: Apple Development
 - **Bundle ID**: `Jay8448.Mind-Bell`
-- **Version**: 1.2.1
+- **Version**: 1.3.0
 - **Build Number**: 10
 
 ---
