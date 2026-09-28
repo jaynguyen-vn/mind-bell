@@ -33,7 +33,7 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 
 ### 2. Configurable Focus Duration
 - **Status**: Completed
-- Set duration from 1–999 minutes (default 8)
+- Set duration from 1–999 minutes (default 8; larger entries are capped at 999)
 - Persisted via UserDefaults
 - Numeric input with validation
 
@@ -50,32 +50,38 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 
 ### 5. Preset Sounds
 - **Status**: Completed
-- 9 built-in bell/chime sounds (WAV format)
-- Organized in 3×3 grid for quick selection
-- Tap to preview before starting
-- Persistent selection via UserDefaults
+- 8 built-in bell/chime sounds (`.m4a`, loudness-normalized), CC0-recorded or synthesized
+- Organized in a 3×3 grid alongside the Custom tile for quick selection
+- Tap to preview before starting; a volume slider below the grid also previews on release
+- Persistent selection via UserDefaults; a saved sound removed from the set remaps to its closest replacement
 
 ### 6. Custom Sound Import
 - **Status**: Completed
-- File picker for MP3 and WAV files
-- Security-scoped bookmarks allow re-access after app restart
+- The 9th grid tile picks an MP3 or WAV file, or switches back to the previously saved one
+- Security-scoped bookmarks allow re-access after app restart, kept even while a preset is selected
 - Fallback to preset if custom file is deleted
 
 ### 7. Alert Notifications
 - **Status**: Completed
-- Toast-style popover shown for 6 seconds when timer fires
+- Toast-style popover shown for 6 seconds when a session starts (if named) or a cycle finishes
+- Paired with a silent system notification on finish (fixed identifier, so repeat mode replaces rather than stacks)
 - Displays task name (if provided)
 - Auto-dismisses; can be manually closed
 
 ### 8. Circular Progress Ring
 - **Status**: Completed
-- Visual countdown ring in the main view during active session
+- Visual countdown ring in the main view during active session, dimmed while paused
 - Smooth animation with 1-second updates
-- Monospaced digit display for time
+- Rounded, monospaced-digit time display
 
-### 9. Keyboard Shortcuts
+### 9. Pause & Resume
 - **Status**: Completed
-- Enter: Start/stop timer
+- Pause a running session and resume without losing the remaining time
+- Menu bar icon and status label reflect the paused state
+
+### 10. Keyboard Shortcuts
+- **Status**: Completed
+- Enter: Start Focus while idle, Pause/Resume while running (Stop has no shortcut)
 - Cmd+Q: Quit app
 
 ## Technical Requirements
@@ -84,8 +90,8 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 - **Platform**: macOS 12.0 or later (Monterey+)
 - **Language**: Swift 5 with SwiftUI
 - **Build System**: Xcode 16.2
-- **Frameworks**: SwiftUI, AVFoundation, Cocoa, UniformTypeIdentifiers
-- **Code Size**: Single 658-line Swift file (main logic)
+- **Frameworks**: SwiftUI, AVFoundation, Cocoa, UniformTypeIdentifiers, ServiceManagement, UserNotifications
+- **Code Size**: Single 959-line Swift file (main logic)
 - **Sandbox**: Enabled with minimal entitlements
 - **No External Dependencies**: Pure Apple frameworks only
 - **No Tests**: Manual testing only (future improvement)
@@ -173,7 +179,6 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 
 ### Phase 4: Advanced Features
 - Custom notification intervals (e.g., "Alert every 2 cycles")
-- Sound volume control
 - Dark/light mode preferences
 - Statistics dashboard (sessions completed, total focus time)
 - iCloud sync of preferences across Mac devices
@@ -188,7 +193,7 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 ## Technical Debt & Known Limitations
 
 1. **No Test Coverage**: Currently manual testing only. Recommend unit tests for TimerViewModel and integration tests for sound playback.
-2. **Single-File Architecture**: 658-line main file is readable but approaching split point. Future refactoring: extract Views, ViewModel, and Models into separate files.
+2. **Single-File Architecture**: 959-line main file is readable but approaching split point. Future refactoring: extract Views, ViewModel, and Models into separate files.
 3. **iOS Code Commented Out**: `Focus_BellApp_Mobile.swift` is not compiled. Recommend extracting shared code into framework.
 4. **No Localization**: Currently English only. Add i18n for international markets.
 5. **Limited Error Handling**: Sound loading errors log to console but don't notify user. Add user-facing error alerts.
@@ -202,6 +207,8 @@ MindBell solves these by offering a menu bar-only experience with sensible defau
 | AVFoundation | macOS 10.7+ | Audio playback | Low—system framework |
 | Cocoa | macOS 10.0+ | Menu bar integration | Low—system framework |
 | UniformTypeIdentifiers | macOS 11+ | File type detection | Low—system framework |
+| ServiceManagement | macOS 13+ | Launch at Login | Low—system framework |
+| UserNotifications | macOS 10.14+ | Silent system banner on session finish | Low—system framework |
 
 ## Go-to-Market Strategy
 

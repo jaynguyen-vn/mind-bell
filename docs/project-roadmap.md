@@ -2,12 +2,11 @@
 
 ## Current Status
 
-**Version:** 1.1.0
-**Build:** 8
-**Release Date:** 2026-03-14
+**Version:** 1.2.1
+**Build:** 10
 **Platform:** macOS 12.0+ (menu bar app)
 **Language:** Swift 5, SwiftUI
-**Status:** Feature-complete (MVP + preset sounds)
+**Status:** Feature-complete (MVP + preset sounds). After 1.2.1 the preset set was remade (8 sounds) and the UI gained pause/resume, volume control and notifications
 
 ---
 
@@ -19,7 +18,7 @@
 - [x] Menu bar timer with countdown display
 - [x] Configurable focus duration (1–999 minutes)
 - [x] Once / Repeat timer modes
-- [x] 9 preset bell/chime sounds
+- [x] Preset bell/chime sound library (the set was later remade to 8 sounds)
 - [x] Sound preview (tap to hear)
 - [x] Custom sound import (MP3/WAV)
 - [x] Task naming (optional label)
@@ -116,7 +115,6 @@
 **Effort:** Varies per feature
 
 **High Priority (User-Requested):**
-- [ ] Volume control slider for notifications
 - [ ] Multiple simultaneous timers (add/remove timer "cards")
 - [ ] Statistics dashboard: Total focus hours, sessions completed, streaks
 - [ ] Custom notification intervals (e.g., "alert every 2 cycles")
@@ -127,7 +125,6 @@
 **Medium Priority (Nice-to-Have):**
 - [ ] Dark/light mode preferences
 - [ ] Custom themes (color palettes)
-- [ ] Pause/resume (not just stop)
 - [ ] Snooze alert (5-minute extension)
 - [ ] Focus history calendar view (heatmap)
 - [ ] Integration with calendar apps (block time)
@@ -151,7 +148,7 @@
 
 ### Code Organization
 
-**Current Issue:** Main file at 658 LOC; approaching readability limit
+**Current Issue:** Main file at 959 LOC; approaching readability limit
 
 **Refactoring (v1.5, 2026 Q2):**
 ```

@@ -46,10 +46,10 @@ MindBell embraces Apple's design principles:
 
 | Purpose | Font | Size | Weight | Usage |
 |---------|------|------|--------|-------|
-| Countdown | System (Monospaced) | 36pt | Light | Time display (MM:SS) |
+| Countdown | System (Rounded, Monospaced digits) | 36pt | Light | Time display (MM:SS) |
 | Labels | System | 14pt | Regular | Task name header |
-| Captions | System | 9–10pt | Regular | Button text, sound names |
-| Section Titles | System | 12pt | Regular | "Task", "Sound", "Mode" |
+| Captions | System | 11–12pt | Regular | Button text, sound names, status label |
+| Section Titles | System | 12pt | Regular | "Task", "Minutes", "Mode", "Sound" |
 
 **Font Properties**
 - **Monospaced for digits**: `NSFont.monospacedDigitSystemFont(ofSize:weight:)` ensures consistent width for countdown
@@ -67,23 +67,23 @@ MindBell embraces Apple's design principles:
 
 | Icon | SF Symbol Name | Context | Size |
 |------|----------------|---------|------|
-| App Icon | `infinity` | Menu bar button | 16pt |
-| Singing Bowl | `circle.circle` | Preset sound tile | 16pt |
-| Zen Bell | `bell` | Preset sound tile | 16pt |
+| App Icon | `bell` (running/idle) / `pause.circle` (paused) | Menu bar button | 16pt |
+| Singing Bowl | `circle.bottomhalf.filled` | Preset sound tile | 16pt |
+| Temple Bell | `bell` | Preset sound tile | 16pt |
+| Tingsha | `sparkles` | Preset sound tile | 16pt |
 | Wind Chime | `wind` | Preset sound tile | 16pt |
-| Chime | `bell.fill` | Preset sound tile | 16pt |
-| Bike Bell | `bicycle` | Preset sound tile | 16pt |
-| School Bell | `bell.badge` | Preset sound tile | 16pt |
+| Kalimba | `music.note` | Preset sound tile | 16pt |
+| Marimba | `music.quarternote.3` | Preset sound tile | 16pt |
 | Airport | `airplane` | Preset sound tile | 16pt |
-| Temple Bell | `building.columns` | Preset sound tile | 16pt |
-| Xylophone | `pianokeys` | Preset sound tile | 16pt |
-| Start | (Implied, no icon) | Start Focus button | — |
+| Soft Ding | `tuningfork` | Preset sound tile | 16pt |
+| Custom Sound | `folder.badge.plus` | Custom sound grid tile (9th tile) | 16pt |
+| Start Focus | (Implied, no icon) | Start Focus button | — |
+| Pause / Resume | (Implied, no icon on button; status label uses `pause.fill`) | Pause/Resume button + status label | — |
 | Stop | (Implied, no icon) | Stop button | — |
-| Once Mode | `1.circle` | Mode picker option | 14pt |
-| Repeat Mode | `repeat` | Mode picker option | 14pt |
-| Custom Sound | `folder` | File picker button | 12pt |
-| Preset Sounds | `music.note.list` | Toggle to presets | 12pt |
-| Checkmark | `checkmark.circle.fill` | Selected sound indicator | 9pt |
+| Once Mode | `1.circle` | Mode picker option; "Ends at" status uses `clock` | 14pt |
+| Repeat Mode | `repeat` | Mode picker option; "Next bell" status | 14pt |
+| Volume | `speaker.fill` / `speaker.wave.3.fill` | Volume slider endpoints | 12pt |
+| Checkmark | `checkmark.circle.fill` | Selected sound indicator | 11pt |
 
 **Icon Design Rules**
 - Always pair with text label (icon alone is ambiguous)
@@ -98,7 +98,7 @@ MindBell embraces Apple's design principles:
 
 ```
 ┌─────────────────────┐
-│ ∞  08:30           │
+│ 🔔  08:30           │
 └─────────────────────┘
   ↑     ↑      ↑
   |     |      └─→ Countdown text (monospaced, right-aligned)
@@ -108,17 +108,17 @@ MindBell embraces Apple's design principles:
 
 **Specifications**
 - **Length**: Variable-width (expands with countdown)
-- **Icon**: `infinity` symbol
+- **Icon**: `bell` symbol; swaps to `pause.circle` while paused
 - **Text**: Monospaced countdown (MM:SS) while running, empty when idle
 - **Font**: `NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)`
 - **Padding**: 4pt left/right of text
 - **Background**: None (transparent, inherits menu bar)
-- **Click Action**: Toggle main popover
+- **Click Action**: Toggle main popover (also activates the app)
 
 **Visual States**
-1. **Idle**: [∞ ]
-2. **Running**: [∞ 08:30]
-3. **Last 60 sec**: [∞ 00:45] (same styling, different numbers)
+1. **Idle**: [🔔 ]
+2. **Running**: [🔔 08:30]
+3. **Paused**: [⏸ 08:30] (`pause.circle` icon)
 
 ### Main Popover
 
@@ -130,12 +130,14 @@ MindBell embraces Apple's design principles:
 │     ┌─ Setup View (idle) ──────┐   │
 │     │                           │   │
 │     │ Task: [Enter task...]     │   │
-│     │ Min: [8] Mode: [Once ●]  │   │
+│     │ Minutes: [8] (5)(15)(25)(50)│  │
+│     │ Mode: [Once ●] [Repeat ○] │   │
 │     │                           │   │
 │     │ Sound:                    │   │
-│     │ [Bell] [Wind] [Singing]   │   │
-│     │ [Chime] [...] [...]       │   │
-│     │ [Use Custom] [...]        │   │
+│     │ [Bowl] [Bell] [Tingsha]   │   │
+│     │ [Wind] [Kalimba] [Marimba]│   │
+│     │ [Airport] [Ding] [Custom] │   │
+│     │ 🔈 ────●──────── 🔊       │   │
 │     │                           │   │
 │     │ [Start Focus =========]   │   │
 │     │                           │   │
@@ -151,21 +153,22 @@ MindBell embraces Apple's design principles:
 │     │    │                 │   │   │
 │     │    │    ◯──── ◮      │   │   │
 │     │    │   08:30         │   │   │
-│     │    │  🔄 Repeating   │   │   │
+│     │    │  Next bell 9:14 │   │   │
 │     │    │                 │   │   │
 │     │    ╰─────────────────╯   │   │
 │     │                           │   │
-│     │   [Stop ============]     │   │
+│     │  [Pause ====] [Stop ====] │   │
 │     │                           │   │
 │     └───────────────────────────┘   │
 │                                     │
-│  Quit                               │
+│  ☐ Launch at Login          Quit    │
+│  MindBell by Jay                    │
 ├─────────────────────────────────────┘
 ```
 
 **Specifications**
-- **Size**: 280×480 points
-- **Behavior**: Transient (closes on focus loss)
+- **Width**: Fixed 280 points; height follows content (setup vs. running), sized via `sizingOptions = .preferredContentSize` on macOS 13+
+- **Behavior**: Transient (closes on focus loss); activates the app when it opens and returns focus to the previous app when closed with Esc or the menu bar icon
 - **Padding**: 20pt all sides
 - **Spacing between sections**: 16pt
 - **Corner radius**: Automatic (NSPopover default)
@@ -180,27 +183,29 @@ MindBell embraces Apple's design principles:
 
 ```
 ┌─────────────────────────────────────────┐
-│  Singing Bowl  │ Zen Bell      │ Wind   │
-│  ◉             │               │ Chime  │
-│  [Circle]      │ [Bell]        │ [Wind] │
+│  Singing Bowl  │ Temple Bell   │ Tingsha│
+│  ◉             │               │        │
+│  [Circle]      │ [Bell]        │ [✨]   │
 │                │               │        │
 ├────────────────┼───────────────┼────────┤
-│  Chime         │ Bike Bell     │ School │
-│  ✓             │               │ Bell   │
-│  [Bell]        │ [Bicycle]     │ [Bell] │
-│ (highlighted)  │               │ [Badge]│
+│  Wind Chime    │ Kalimba       │ Marimba│
+│  ✓             │               │        │
+│  [Wind]        │ [Note]        │ [Notes]│
+│ (highlighted)  │               │        │
 ├────────────────┼───────────────┼────────┤
-│  Airport       │ Temple Bell   │ Xylo   │
-│                │               │ phone  │
-│  [Airplane]    │ [Columns]     │ [Keys] │
+│  Airport       │ Soft Ding     │ Custom │
+│                │               │        │
+│  [Airplane]    │ [Tuning Fork] │ [Folder+]│
 │                │               │        │
 └─────────────────────────────────────────┘
-
-[Use Presets] ← Toggle to show file picker instead
 ```
 
+Custom is the 9th tile; tapping it opens the file picker (first pick, or when Custom is
+already selected) or switches back to the previously saved custom file. A volume slider
+sits below the grid; releasing it previews the sound.
+
 **Grid Layout**
-- **Columns**: 3 (fixed)
+- **Columns**: 3 (fixed), 9 tiles total (8 presets + Custom)
 - **Spacing**: 6pt between tiles
 - **Tile Size**: ~70×70pt (flexible)
 - **Tile Padding**: 6pt vertical, 8pt horizontal
@@ -224,16 +229,17 @@ MindBell embraces Apple's design principles:
 **Specifications**
 - **Icon Size**: 16pt
 - **Icon-to-Text Spacing**: 4pt
-- **Text Size**: 9pt (caption)
+- **Text Size**: 11pt
 - **Text Alignment**: Center
 - **Border Radius**: 8pt
 - **Border Width**: 1pt
-- **Checkmark Size**: 9pt (top-right corner)
+- **Checkmark Size**: 11pt (top-right corner)
 
 **States**
 1. **Normal**: Transparent background, gray@0.2 border
-2. **Selected**: Accent-colored background (opacity 0.15) + border (accent@0.5) + white checkmark
+2. **Selected**: Accent-colored background (opacity 0.15) + border (accent@0.5) + accent-colored checkmark
 3. **Pressed**: Slight scale-down or opacity change (subtle feedback)
+4. **Accessibility**: Selected tiles expose the `.isSelected` trait alongside `.isButton`
 
 ### Input Fields
 
@@ -243,10 +249,10 @@ MindBell embraces Apple's design principles:
 │ [What are you focusing on?........]│
 └────────────────────────────────────┘
 
-┌────────┐
-│ Minutes│
-│ [8...] │  ← 60pt width
-└────────┘
+┌──────────────────────────┐
+│ Minutes                  │
+│ [8] (5)(15)(25)(50)      │  ← text field (48pt) + preset chips
+└──────────────────────────┘
 
 ┌──────────────────────┐
 │ Mode                 │
@@ -262,11 +268,12 @@ MindBell embraces Apple's design principles:
 - **Font**: System, 13pt regular
 
 **Numeric Field (Duration)**
-- **Width**: 60pt (fixed for short numbers)
+- **Width**: 48pt (fixed for short numbers)
 - **Style**: `.roundedBorder`
 - **Font**: System, 13pt regular
-- **Input Type**: Numbers only
-- **Validation**: Min 1, max 999
+- **Input Type**: Numbers only, updates on every keystroke
+- **Quick presets**: `MinutePresetChip` row for 5/15/25/50 minutes, highlighted when it matches the current value
+- **Validation**: Must be ≥ 1; shows inline red "Enter at least 1 minute" and disables Start Focus otherwise
 
 **Mode Picker**
 - **Style**: Segmented control
@@ -284,13 +291,13 @@ MindBell embraces Apple's design principles:
     ╱    ◯───────     ╲
     │    │         │    │
     │    │  08:30  │    │
-    │    │ Repeat  │    │
-    │    │         │    │
+    │    │Next bell│    │
+    │    │  9:14   │    │
     ╲    ╲─────────╱    ╱
       ╲             ╱
         └─────────────┘
 
-        (animated fill from 0–100%)
+        (animated fill from 0–100%; ring dims to 40% opacity while paused)
 ```
 
 **Circle Specifications**
@@ -299,62 +306,61 @@ MindBell embraces Apple's design principles:
 - **Progress Ring**: Accent color, 6pt stroke width, rounded caps
 - **Rotation**: Starts at top (-90°), fills clockwise
 - **Animation**: Linear, 1-second duration per tick
+- **Paused State**: Ring opacity drops to 0.4
 
 **Time Display**
-- **Font**: System, monospaced, 36pt, light weight
+- **Font**: System, rounded design, monospaced digits, 36pt, light weight
 - **Format**: MM:SS (e.g., "08:30")
 - **Vertical Alignment**: Center in ring
 - **Color**: System foreground (auto-inverted for dark mode)
 
-**Mode Label (below time)**
-- **Text**: "🔄 Repeating" (icon + text)
-- **Font**: System, 10pt, regular
+**Status Label (below time)**
+- **Text**: "Ends at h:mm" (once mode), "Next bell h:mm" (repeat mode), or "Paused"
+- **Icon**: `clock`, `repeat`, or `pause.fill` to match the text
+- **Font**: System, 11pt, regular
 - **Color**: `.secondary`
-- **Visible**: Only when mode == .repeat
+- **Visible**: Always, while running
 
 ### Buttons
 
 ```
 ┌─────────────────────────────────┐
-│  Start Focus                    │
+│  Start Focus / Pause / Resume   │
 │  (full width, controlSize.large)│
 └─────────────────────────────────┘
 
-[Use Custom] [Choose File] (smaller buttons)
+[Stop]  (large, default style, no accent fill)
+Change… (link-style, under the Custom tile)
 ```
 
-**Primary Button (Start/Stop)**
+**Primary Button (Start Focus / Pause / Resume)**
+- **Style**: `.borderedProminent`
 - **Size**: Control size `.large`
-- **Width**: Full width (less padding)
-- **Height**: ~48pt
+- **Width**: Full width (Start Focus) or half width next to Stop (Pause/Resume)
 - **Background**: System accent color
 - **Text Color**: White (auto-adjusted on accent)
 - **Border Radius**: Default (auto)
-- **Font**: 13pt, semibold
-- **State Normal**: Opaque blue
-- **State Disabled**: Opaque gray (when duration ≤ 0)
-- **State Pressed**: Darker blue (native system handling)
+- **State Disabled**: Start Focus only, when duration ≤ 0
+- **Keyboard Shortcut**: Return — Start Focus while idle, Pause/Resume while running
 
-**Secondary Buttons (Toggle, File Picker)**
-- **Size**: Control size `.small`
-- **Style**: `.bordered`
-- **Background**: Transparent
-- **Border**: 1pt system border
-- **Text Color**: Accent color
-- **Font**: 12pt, regular
+**Stop Button**
+- **Style**: Default (no `.buttonStyle` override — system bordered look, not accent-filled)
+- **Size**: Control size `.large`
+- **Width**: Half width, next to Pause/Resume
+- **Keyboard Shortcut**: None (intentional — Stop ends the session and should never fire by accident)
 
-**Link-Style Buttons (Quit)**
-- **Style**: `.plain`
-- **Text Color**: `.secondary`
-- **Font**: 11pt, regular
-- **Hover**: Slightly darker (native system)
-- **No background** or border
+**Link-Style Controls (Change…, Quit, credit)**
+- **Style**: `.link` (Change…) or `.plain` (Quit) / `Link` (credit)
+- **Font**: `.caption`
+- **Text Color**: `.secondary` (Quit) or default link color (Change…, credit)
+- **Cursor**: Pointing-hand on hover (`PointingHandCursor` modifier)
 
 ### Alert Popover (Toast)
 
 ```
 ┌────────────────────────────────┐
-│  Focus Session (task name)     │
+│  "Focus started · task"        │
+│  "Time's up" / "Time's up · task"│
 │  or "MindBell is ready"        │
 │  (auto-sizes, max 484pt wide)  │
 └────────────────────────────────┘
@@ -373,7 +379,9 @@ Position: Above menu bar icon
 - **Auto-dismiss**: 6 seconds via DispatchQueue
 
 **Behavior**
-- Appears above status item when timer fires
+- "Focus started" shows only when a task name is set; "Time's up" always shows on every cycle
+- "MindBell is ready" shows once, on first launch only
+- Every "Time's up" is paired with a silent system notification (fixed identifier, so repeat mode replaces rather than stacks)
 - Replaces previous alert if one was showing
 - Auto-closes after 6 seconds
 - User can click to close immediately (no click handler; just let popover dismiss)
@@ -406,13 +414,13 @@ Start Button [16pt vertical spacing]
 ### Responsive Behavior
 
 **Popover Size**
-- Fixed 280×480pt (macOS doesn't need responsive breakpoints)
+- Fixed 280pt width; height follows content (Setup vs. Running) instead of a fixed height
 - Text wraps as needed
 - VStack handles overflow with Spacer
 
 **Grid Columns**
 - Fixed 3 columns (determined by visual design, not screen width)
-- Always shows 3×3 grid for sound selection
+- Always shows a 3×3 grid: 8 preset tiles + the Custom tile
 
 **Button Width**
 - Primary buttons: Full width of container
@@ -462,27 +470,35 @@ Circle()
 - ✅ SF Symbols scale with text
 - ✅ Keyboard shortcuts (Enter, Cmd+Q)
 - ✅ Button labels are clear
-- ❌ VoiceOver support not yet added
+- ✅ Sound tiles and minute chips carry an accessibility label and expose the `.isSelected` trait when active
+- ✅ Volume slider and minutes field have accessibility labels
+- ❌ Full VoiceOver pass not done
 - ❌ High contrast mode not tested
 
-### Future Improvements (Phase 4)
+### Future Improvements
 
-- [ ] Add `.accessibilityLabel()` and `.accessibilityValue()` to all controls
-- [ ] Test with VoiceOver enabled
+- [ ] Test with VoiceOver enabled end-to-end
 - [ ] Ensure keyboard navigation works (Tab, Shift+Tab)
 - [ ] Support high-contrast mode
 - [ ] Add haptic feedback option
 
 ### Labels & Descriptions
 
-**Recommended Accessibility Labels** (for future implementation)
+**Accessibility Labels in Use**
+
+| Control | Label | Trait/Value |
+|---------|-------|-------|
+| Sound Tile | Sound display name (e.g. "Singing Bowl") | `.isSelected` when active |
+| Minute Preset Chip | "N minutes" | `.isSelected` when it matches the current duration |
+| Volume Slider | "Volume" | — |
+| Minutes Field | "Minutes" | — |
+| Progress Ring | Combined child elements | — |
+
+**Still Recommended**
 
 | Control | Label | Value |
 |---------|-------|-------|
 | Status Item | "MindBell menu bar timer" | "08:30 remaining" |
-| Start Button | "Start Focus" | (dynamic) |
-| Progress Ring | "Focus progress" | "50% complete" |
-| Sound Tile | "Singing Bowl preset" | "selected" (if selected) |
 | Mode Picker | "Timer mode" | "Once" or "Repeating" |
 
 ---
@@ -511,7 +527,7 @@ All colors specified in this guide use system names:
 ### Known Limitations
 
 1. **No Custom Themes**: Only system accent color available
-2. **Fixed Popover Size**: Can't resize (design constraint)
+2. **Fixed Popover Width**: 280pt width can't be resized by the user (height now follows content on macOS 13+)
 3. **No Animations on Duration Change**: Could be smoother
 4. **Sound Grid Icon Sizes**: Could be fine-tuned per icon
 
@@ -530,11 +546,11 @@ Before shipping UI changes, verify:
 - [ ] Follows system colors (not custom hex)
 - [ ] Icons are SF Symbols (not custom assets)
 - [ ] Spacing follows 4pt/8pt/16pt grid
-- [ ] Font sizes are standard (13pt, 9pt, 36pt, etc.)
+- [ ] Font sizes are standard (13pt, 11pt, 36pt, etc.)
 - [ ] Dark mode tested (System Preferences > Appearance)
 - [ ] High contrast mode tested (Accessibility settings)
 - [ ] All buttons have clear labels
-- [ ] Popover size still 280×480pt
+- [ ] Popover width still 280pt
 - [ ] Keyboard shortcuts still work
 - [ ] No hardcoded colors (use `.foregroundColor`, `.secondary`, etc.)
 

@@ -5,15 +5,17 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 ## Features
 
 - **Menu bar timer**: Minimalist interface—no dock icon, no distractions
-- **Configurable focus sessions**: Set duration in minutes (default 8) and choose once or repeat mode
-- **9 preset sounds**: Singing Bowl, Zen Bell, Wind Chime, Chime, Bike Bell, School Bell, Airport, Temple Bell, Xylophone
-- **Custom sound support**: Import your own MP3 or WAV files for alert notifications
-- **Sound preview**: Tap any sound to hear it immediately before starting
+- **Configurable focus sessions**: Set duration in minutes (default 8, or pick a 5/15/25/50 preset) and choose once or repeat mode
+- **8 preset sounds**: Singing Bowl, Temple Bell, Tingsha, Wind Chime, Kalimba, Marimba, Airport, Soft Ding
+- **Custom sound support**: Pick your own MP3 or WAV file from the 9th grid tile
+- **Sound preview**: Tap any sound (or release the volume slider) to hear it immediately
+- **Volume control**: Slider under the sound grid, remembered across launches
 - **Task labels**: Optionally name your focus session (e.g., "Deep Work", "Reading")
-- **Circular progress ring**: Visual countdown during focus time
-- **Toast notifications**: Shows a 6-second alert when timer fires
-- **Persistent settings**: Remembers your last duration, sound, and custom files
-- **Keyboard shortcuts**: Enter to start/stop, Cmd+Q to quit
+- **Circular progress ring**: Visual countdown during focus time; dims while paused
+- **Pause & resume**: Pause a running session and pick up where you left off
+- **Toast + notification**: Shows an on-screen alert when the timer fires, plus a silent system notification
+- **Persistent settings**: Remembers your last duration, sound, volume, and custom file
+- **Keyboard shortcuts**: Enter to start a session (or pause/resume it while running), Cmd+Q to quit
 
 ## Installation
 
@@ -56,7 +58,7 @@ MindBell/
     ├── Focus_Bell.entitlements      # Sandbox and file access permissions
     ├── Assets.xcassets/             # App icons and image assets
     ├── Preview Content/             # SwiftUI preview data
-    └── [9 sound files]              # Preset alert sounds (WAV format)
+    └── [8 sound files]              # Preset alert sounds (.m4a)
 ```
 
 ## Architecture Overview
@@ -65,7 +67,7 @@ MindBell/
 
 - **TimerViewModel**: Manages timer logic, sound loading/playback, and UserDefaults persistence
 - **AppDelegate**: Manages the menu bar status item, main popover UI, and alert notifications
-- **Views**: `ContentView` (router), `TimerSetupView` (configuration), `TimerRunningView` (countdown display), `SoundSelectionView` (sound picker), `SoundGridItem` (individual sound cell)
+- **Views**: `ContentView` (router), `TimerSetupView` (configuration), `TimerRunningView` (countdown display), `SoundSelectionView` (sound picker), `SoundGridItem` (individual sound cell), `MinutePresetChip` (quick duration picker)
 - **App Entry**: `TimerApp` (`@main` struct)
 - **Enums**: `TimerMode`, `SoundSource`, `AlertSound`
 - **Protocol**: `TimerUpdateDelegate` bridges ViewModel to AppDelegate for UI updates
@@ -74,7 +76,7 @@ MindBell/
 
 | Shortcut | Action |
 |----------|--------|
-| Enter | Start focus / Stop timer |
+| Enter | Start focus (setup) / Pause–Resume (running) |
 | Cmd+Q | Quit MindBell |
 
 ## Entitlements
@@ -83,6 +85,21 @@ MindBell runs in Apple's macOS sandbox with these permissions:
 - **App Sandbox**: Enabled for security
 - **File Access**: Can read user-selected files (custom sounds)
 - **Security-Scoped Bookmarks**: Remembers access to imported sound files
+
+## Sound Credits
+
+The recorded presets come from [Freesound](https://freesound.org) under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (no attribution required, credited with thanks). Each was trimmed, faded, converted to mono and loudness-normalized to about −18 LUFS.
+
+| Preset | Source | Author |
+|--------|--------|--------|
+| Singing Bowl | [E flat Tibetan singing bowl struck](https://freesound.org/people/mttvn/sounds/535950/) | mttvn |
+| Temple Bell | [Bright Tibetan Bell Ding B Note - cleaner](https://freesound.org/people/steaq/sounds/346328/) | steaq |
+| Tingsha | [Tingsha Cymbal](https://freesound.org/people/steffcaffrey/sounds/435074/) | steffcaffrey |
+| Wind Chime | [Wind Chimes.wav](https://freesound.org/people/MPTSound/sounds/552458/) | MPTSound |
+| Kalimba | [Sansula 04 F' [RAW]](https://freesound.org/people/cabled_mess/sounds/380739/) | cabled_mess |
+| Marimba | [Marimba - E#4 (VSCO 2 CE)](https://freesound.org/people/sgossner/sounds/373583/) | sgossner |
+
+Airport is MindBell's original chime, cleaned up; Soft Ding is synthesized for the app.
 
 ## License
 

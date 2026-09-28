@@ -21,14 +21,14 @@ MindBell follows Swift and SwiftUI conventions with an MVVM-inspired architectur
 
 **Function & Method Names**
 - Use `lowerCamelCase`
-- Verb-first for actions: `startTimer()`, `stopTimer()`, `resetTimer()`, `loadCustomSound()`
+- Verb-first for actions: `startTimer()`, `stopTimer()`, `pauseTimer()`, `resumeTimer()`, `loadSound(from:)`
 - Getter methods omit "get": `formatTime()` not `getFormattedTime()`
 - Boolean predicates use "is" or "has": `FileManager.default.fileExists(atPath:)`
 
 **Enum Cases**
 - Use `lowerCamelCase` (associated values are lowercase)
-- Examples: `.singingBowl`, `.zenBell`, `bikeBell`
-- Raw values use `kebab-case` for filenames: `"singing-bowl"`, `"zen-bell"`
+- Examples: `.singingBowl`, `.templeBell`, `.softDing`
+- Raw values use `kebab-case` for filenames: `"singing-bowl"`, `"soft-ding"`
 
 **Constants**
 - Use `UPPER_SNAKE_CASE` for file-scope constants (rare in Swift; UserDefaults keys are exceptions)
@@ -49,7 +49,7 @@ Focus Bell/
 └── [Asset folders & sounds]
 ```
 
-**Future Refactoring Structure** (when 658 LOC → 900+ LOC):
+**Future Refactoring Structure** (main file is now 959 LOC, past the 800-LOC split point below):
 ```
 Focus Bell/
 ├── App/
@@ -260,12 +260,12 @@ guard let url = customSoundURL else {
     soundSource = .preset
     return
 }
-loadCustomSound(from: url)
+loadSound(from: url)
 
 // ✗ Nested optionals hard to read
 if let url = customSoundURL {
     if FileManager.default.fileExists(atPath: url.path) {
-        loadCustomSound(from: url)
+        loadSound(from: url)
     }
 }
 ```
@@ -414,7 +414,7 @@ Before committing code, verify:
 ## Architectural Decisions
 
 **Single-File Architecture**
-- **Decision**: Keep main logic in one file (Focus_BellApp.swift) until 800+ LOC
+- **Decision**: Keep main logic in one file (Focus_BellApp.swift) past the original 800+ LOC guideline; it's now 959 LOC
 - **Rationale**: Quick to navigate, single mental model for new contributors
 - **Tradeoff**: Readability over modularity at this scale
 - **Refactor Point**: When Xcode's outline pane shows > 20 symbols, split by domain (Views, ViewModel, Models)

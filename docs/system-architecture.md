@@ -7,7 +7,7 @@ MindBell is a **menu bar–first macOS application** with minimal system footpri
 ```
 ┌─────────────────────────────────────────────────────┐
 │                  macOS Menu Bar                     │
-│  [∞ 08:30] ← Click to show/hide main popover       │
+│  [🔔 08:30] ← Click to show/hide main popover      │
 └──────────────────┬──────────────────────────────────┘
                    │
         ┌──────────▼──────────┐
@@ -30,7 +30,7 @@ MindBell is a **menu bar–first macOS application** with minimal system footpri
    ┌──▼──────────┐      ┌──────▼──────┐
    │ NSPopover   │      │ NSPopover   │
    │ (Main UI)   │      │ (Alert)     │
-   │ 280×480     │      │ (6 sec)     │
+   │ 280w, autoh │      │ (6 sec)     │
    └──┬──────────┘      └─────────────┘
       │
    ┌──▼──────────────────────────┐
@@ -82,26 +82,26 @@ MindBell is a **menu bar–first macOS application** with minimal system footpri
 **ContentView** (Router)
 - Conditional rendering: `TimerSetupView` if idle, `TimerRunningView` if running
 - Passes `ViewModel` via `@ObservedObject` binding
-- Quit button
+- Footer: Launch at Login checkbox (macOS 13+), Quit button, credit link
 
 **TimerSetupView** (Configuration)
 - Task name input (optional)
-- Duration input (minutes) + Mode picker (Once/Repeat)
+- Minutes text field + quick preset chips (5/15/25/50) + Mode picker (Once/Repeat)
 - Sound selection (via `SoundSelectionView`)
 - Start Focus button
-- Disabled if duration ≤ 0
+- Disabled if duration ≤ 0; inline error text shown instead
 
 **TimerRunningView** (Countdown)
 - Displays task name (if provided)
-- Circular progress ring (160×160) with smooth animation
-- Monospaced countdown (MM:SS)
-- "Repeating" label (if in repeat mode)
-- Stop button
+- Circular progress ring (160×160) with smooth animation, dimmed while paused
+- Rounded, monospaced-digit countdown (MM:SS)
+- Status label: "Ends at h:mm" (once), "Next bell h:mm" (repeat), or "Paused"
+- Pause/Resume button (Enter shortcut) and Stop button (no shortcut)
 
 **SoundSelectionView** (Sound Picker)
-- Preset grid: 3×3 LazyVGrid of `SoundGridItem`
-- Custom file picker: "Choose File" button + filename display
-- Toggle button: "Use Custom" ↔ "Use Presets"
+- 3×3 LazyVGrid: 8 preset `SoundGridItem` tiles + a 9th "Custom" tile
+- Custom tile opens the file picker or switches back to the saved custom file
+- Volume slider below the grid; releasing it previews the sound
 
 **SoundGridItem** (Sound Tile)
 - SF Symbol icon + display name
@@ -112,7 +112,7 @@ MindBell is a **menu bar–first macOS application** with minimal system footpri
 ### Layer 4: Delegate Bridge
 
 **TimerUpdateDelegate (Protocol)**
-- Two methods: `updateMenuBarTitle()`, `showAlert()`
+- Three methods: `updateMenuBarTitle(_:isPaused:)`, `sessionDidStart(taskName:)`, `sessionDidFinish(taskName:nextBellMinutes:)`
 - Decouples ViewModel from AppDelegate
 - Enables `AppDelegate` to receive notifications without ViewModel knowing implementation details
 
@@ -160,26 +160,27 @@ User Selects Preset
             └→ AVAudioPlayer(contentsOf: url)
             └→ prepareToPlay()
 
-User Selects Custom
+User Taps the Custom Tile
     │
-    └→ selectCustomSound()
-        └→ NSOpenPanel (file picker, MP3/WAV only)
-        └→ customSoundURL = url
-        └→ (didSet triggers) Bookmark saved to UserDefaults
-        └→ loadCustomSound(from: url)
-            └→ AVAudioPlayer(contentsOf: url)
-            └→ prepareToPlay()
+    └→ selectCustomTile()
+        ├→ if already Custom, or no saved file → selectCustomSound()
+        │       └→ NSOpenPanel (file picker, MP3/WAV only)
+        │       └→ customSoundURL = url
+        │       └→ (didSet triggers) Bookmark saved to UserDefaults
+        │       └→ loadSound(from: url) → AVAudioPlayer → prepareToPlay()
+        └→ else → soundSource = .custom, previewSound() with the saved file
 
 App Restart
     │
     └→ TimerViewModel.init()
         └→ restoreSavedSettings()
+            ├→ Load selectedSound; `AlertSound(savedValue:)` remaps a removed preset to its replacement
             ├→ Load isCustomSound flag
-            ├→ Restore customSoundBookmark from UserDefaults
+            ├→ Restore customSoundBookmark from UserDefaults (kept even if a preset is selected)
             ├→ URL(resolvingBookmarkData:) → re-access custom file
             └→ loadCurrentSound()
                 ├→ if .preset → loadPresetSound()
-                └→ if .custom → loadCustomSound()
+                └→ if .custom → loadSound(from:)
 ```
 
 ### Persistence Architecture
@@ -189,10 +190,12 @@ App Restart
 | Key | Type | Restored On | Fallback |
 |-----|------|-------------|----------|
 | `initialTime` | Int | App launch | 8 minutes |
+| `volume` | Double | App launch | 1.0 |
 | `selectedSound` | String (raw) | App launch | `.singingBowl` |
 | `isCustomSound` | Bool | App launch | false |
 | `customSoundBookmark` | Data | App launch | nil (use preset) |
 | `customSoundName` | String | App launch | "" (empty) |
+| `hasShownReadyToast` | Bool | App launch | false (show "MindBell is ready" once) |
 
 **Restore Flow:**
 ```
@@ -218,7 +221,7 @@ App launches
 statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
 if let button = statusItem.button {
-    button.image = NSImage(systemSymbolName: "infinity", accessibilityDescription: "Infinity")
+    button.image = bellImage  // NSImage(systemSymbolName: "bell", ...)
     button.action = #selector(togglePopover(_:))
     button.target = self
     button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -227,25 +230,27 @@ if let button = statusItem.button {
 ```
 
 **Visual Appearance:**
-- **Icon**: SF Symbol "infinity" (∞)
+- **Icon**: SF Symbol `bell`; swaps to `pause.circle` while the session is paused (`updateMenuBarTitle(_:isPaused:)`)
 - **Text**: Monospaced countdown while running (e.g., " 08:30"), empty when idle
 - **Width**: Variable-length (expands/contracts with text)
 - **Position**: Top-right of menu bar
 
 ### Popover Behavior
 
-**Main Popover** (280×480)
+**Main Popover** (280pt wide, height follows content)
 - Anchored to status item button
-- Behavior: `.transient` (closes on focus loss)
+- Behavior: `.transient` (closes on focus loss); activates the app on open, and `popoverDidClose` deactivates it again when no MindBell window is key
 - Content: `ContentView` (via `NSHostingController`)
+- On macOS 13+, `sizingOptions = .preferredContentSize` lets the popover follow the SwiftUI content height as it switches between Setup and Running; earlier macOS falls back to the content's `fittingSize`
 - Toggled by clicking status item
 
 **Alert Popover** (Auto-sizing)
 - Anchored above status item button
 - Behavior: `.transient`
-- Content: Simple text (task name or "MindBell is ready")
+- Content: Simple text ("Focus started · task", "Time's up[ · task]", or "MindBell is ready" on first launch)
 - Auto-closes after 6 seconds via `DispatchQueue.main.asyncAfter(deadline: .now() + 6)`
 - Replaces previous alert if one is active
+- "Time's up" is paired with a silent `UNUserNotificationCenter` banner (fixed identifier `mindbell.time-up`, so repeat mode replaces rather than stacks); shown even while MindBell is the active app
 
 ---
 
@@ -257,7 +262,7 @@ if let button = statusItem.button {
                     ┌─── Preset Sound ─────┐
                     │                      │
 User Selects Sound──┤   Bundle (compiled)  │
-                    │   in .wav format     │
+                    │   in .m4a format     │
                     └─── Custom Sound ─────┘
                               │
                     ┌─────────▼──────────┐
@@ -273,13 +278,16 @@ User Selects Sound──┤   Bundle (compiled)  │
                     └────────────────────┘
 ```
 
+The start of a session plays the selected sound at half volume and fades it out after
+~1.2 s; the end-of-cycle bell always plays in full at the set volume.
+
 ### Sound Formats Supported
 
 | Format | Purpose | Limitations |
 |--------|---------|-------------|
-| WAV (.wav) | Preset sounds | Lossless, larger file size |
-| MP3 (.mp3) | Custom imports | Lossy, smaller file size, lower latency |
-| Other | Not supported | File picker filters to MP3/WAV only |
+| AAC (.m4a) | Preset sounds | Mono, 48 kHz, loudness-normalized to about −16 LUFS |
+| MP3 (.mp3) / WAV (.wav) | Custom imports | File picker filters to MP3/WAV only |
+| Other | Not supported | — |
 
 ### Security-Scoped File Access
 
@@ -317,48 +325,61 @@ App Reopens
 startTimer() called
     │
     ├→ ignored if already running (no orphaned second timer)
-    ├→ isRunning = true (triggers UI render)
+    ├→ isRunning = true, isPaused = false
     ├→ startCycle(): timeLeft = initialTime * 60, endDate = now + timeLeft
-    ├→ beginActivity(.userInitiatedAllowingIdleSystemSleep) → no App Nap throttling
-    ├→ playSound()
-    ├→ showAlert(taskName) if task name provided
+    ├→ startTicking(): beginActivity(.userInitiatedAllowingIdleSystemSleep) → no App Nap
+    │                  throttling, then Timer.scheduledTimer(withTimeInterval: 1) → tick()
+    ├→ loadCurrentSound(); playStartCue() → sound at half volume, fades out after ~1.2 s
     │
-    └→ Timer.scheduledTimer(withTimeInterval: 1, repeats: true) → tick()
+    └→ delegate?.sessionDidStart(taskName:)
+        ├→ requests notification authorization (first time)
+        └→ shows "Focus started · task" toast only if a task name is set
+
+Every 1 second, tick():
+    ├→ remaining = endDate - now (rounded to whole seconds)
+    │
+    ├→ if remaining > 0:
+    │   ├→ timeLeft = remaining
+    │   └→ updateMenuBarTitle(_:isPaused:) → AppDelegate updates menu bar
+    │
+    └→ else (cycle fires):
+        ├→ loadCurrentSound(); playSound() → full volume, end-of-cycle bell
+        ├→ delegate?.sessionDidFinish(taskName:nextBellMinutes:)
+        │       ├→ shows "Time's up[ · task]" toast
+        │       └→ posts a silent UNUserNotification (fixed identifier, replaces in repeat mode)
         │
-        └→ Every 1 second:
-            ├→ remaining = endDate - now (rounded to whole seconds)
+        └→ if mode == .once:
+            │   stopTimer(stopSound: false) → bell rings out
             │
-            ├→ if remaining > 0:
-            │   ├→ timeLeft = remaining
-            │   ├→ updateMenuBarTitle() → AppDelegate updates menu bar
-            │   └→ (SwiftUI detects @Published change, re-renders)
-            │
-            └→ else (timer fires):
-                ├→ playSound()
-                ├→ showAlert(taskName)
-                │
-                └→ if mode == .once:
-                    │   stopTimer(stopSound: false) → bell rings out
-                    │
-                    └→ else (mode == .repeat):
-                        └→ startCycle()
-                            └→ Cycle repeats
+            └→ else (mode == .repeat):
+                └→ startCycle() → cycle repeats
 ```
 
 The countdown is read off the wall clock (`endDate`), not decremented per tick. If the Mac
 sleeps past the end, the bell rings on the first tick after wake instead of being pushed back
 by the sleep time. A manual Stop (`stopTimer()`) still cuts any sound that is playing.
 
+**Pause / Resume**
+```
+pauseTimer(): stores endDate.timeIntervalSinceNow as pausedRemaining, clears endDate,
+              isPaused = true, stops the tick timer (endActivity)
+resumeTimer(): endDate = now + pausedRemaining, isPaused = false, restarts the tick timer
+togglePause(): calls resumeTimer() if paused, else pauseTimer()
+```
+Both notify the delegate so the menu bar icon and the running view's status label/ring
+opacity reflect the paused state.
+
 ### Keyboard Event Handling
 
 ```
 NSEvent.addLocalMonitorForEvents(matching: .keyDown)
     │
-    ├→ if Cmd+Q → NSApplication.shared.terminate(nil)
-    │
-    └→ (Enter handled via Button.keyboardShortcut in views)
-        └→ Start Focus (Enter when idle)
-        └→ Stop (Enter when running)
+    └→ if Cmd+Q → NSApplication.shared.terminate(nil)
+
+(Enter handled via Button.keyboardShortcut(.return) in views)
+    └→ Start Focus (Enter while idle)
+    └→ Pause / Resume (Enter while running)
+    — Stop has no keyboard shortcut, so it can't fire by accident
 ```
 
 ---
@@ -534,7 +555,7 @@ if let url = try? URL(resolvingBookmarkData: bookmarkData, ...) {
 ### Code Distribution
 
 - **Single executable**: Focus Bell.app (macOS Mach-O binary)
-- **Bundle resources**: 9 WAV files + app icons (≈5 MB total)
+- **Bundle resources**: 8 `.m4a` files + app icons
 - **Settings**: Stored in UserDefaults plist (~2 KB)
 - **No external dependencies**: All Apple frameworks
 
@@ -566,7 +587,7 @@ if let url = try? URL(resolvingBookmarkData: bookmarkData, ...) {
 - Single timer only (can't run multiple in parallel)
 - Linear time progression (no custom intervals)
 - No background activity (app must stay running)
-- In-memory sound storage (9×100 KB, negligible)
+- In-memory sound storage (one loaded `AVAudioPlayer` at a time, negligible)
 
 **Future Considerations:**
 - **Multiple Timers:** Would need ViewModel array + multi-row display
