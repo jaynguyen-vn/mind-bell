@@ -2,6 +2,13 @@
 
 A minimal, distraction-free focus timer for macOS that lives entirely in the menu bar. Set a duration, choose a calm sound notification, and stay focused.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/mindbell-preview-dark.jpg">
+    <img src="docs/images/mindbell-preview-light.jpg" width="820" alt="MindBell's menu bar popover: the setup view with task, minutes, mode and the sound grid, and a running session with its countdown ring">
+  </picture>
+</p>
+
 ## Features
 
 - **Menu bar timer**: Minimalist interface—no dock icon, no distractions
@@ -13,8 +20,10 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 - **Task labels**: Optionally name your focus session (e.g., "Deep Work", "Reading")
 - **Circular progress ring**: Visual countdown during focus time; dims while paused
 - **Pause & resume**: Pause a running session and pick up where you left off
+- **Soft start cue**: A quiet, short strike when a session starts, so it is never mistaken for the end bell
 - **Toast + notification**: Shows an on-screen alert when the timer fires, plus a silent system notification
 - **Persistent settings**: Remembers your last duration, sound, volume, and custom file
+- **Launch at Login**: Optional checkbox to start MindBell with your Mac (macOS 13+)
 - **Keyboard shortcuts**: Enter to start a session (or pause/resume it while running), Cmd+Q to quit
 
 ## Installation
@@ -22,12 +31,12 @@ A minimal, distraction-free focus timer for macOS that lives entirely in the men
 ### Download (Recommended)
 
 1. Go to the [Releases](https://github.com/jaynguyen-vn/mind-bell/releases/latest) page
-2. Download **MindBell.dmg** (or MindBell.zip)
+2. Download **MindBell.dmg**
 3. Open the `.dmg` and drag **MindBell.app** to your **Applications** folder
-4. On first launch, right-click the app and select **Open** (macOS Gatekeeper prompt for unsigned apps)
+4. Open MindBell. macOS blocks the first launch because the app is not notarized: go to **System Settings > Privacy & Security**, scroll down, click **Open Anyway** and confirm
 5. MindBell appears as a bell icon in your menu bar — no dock icon
 
-> **Note:** MindBell is not notarized by Apple. On first run macOS may block it. Go to **System Settings > Privacy & Security** and click **Open Anyway**, or right-click → Open.
+> **Note:** You only need step 4 once. On macOS 12–14 you can instead right-click the app and choose **Open**; since macOS 15 (Sequoia) that shortcut no longer bypasses Gatekeeper, so use **Open Anyway**.
 
 ### Build from Source
 
